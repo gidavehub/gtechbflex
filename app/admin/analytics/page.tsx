@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { BarChart3, Sparkles } from 'lucide-react';
+import { BarChart3 } from 'lucide-react';
 import { getApplications } from '@/lib/firestore';
 import type { Application } from '@/lib/types';
 

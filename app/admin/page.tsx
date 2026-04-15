@@ -47,7 +47,6 @@ export default function AdminDashboard() {
         <div className="absolute top-0 right-0 w-64 h-64 bg-gold-400/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl" />
         <div className="relative z-10">
           <div className="flex items-center gap-2 mb-2">
-            <Sparkles size={16} className="text-gold-400" />
             <span className="text-xs font-semibold uppercase tracking-widest text-gold-400">Admin Dashboard</span>
           </div>
           <h1 className="text-2xl font-bold mb-1">Welcome Back 👋</h1>

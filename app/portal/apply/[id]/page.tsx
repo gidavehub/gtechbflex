@@ -232,7 +232,6 @@ export default function ApplyPage() {
             >
               <div className="mb-5">
                 <div className="flex items-center gap-2 mb-1">
-                  <Sparkles size={13} className="text-gold-400" />
                   <span className="text-xs uppercase tracking-wider text-gray-400 font-semibold">Step {step + 1} of {STEPS.length}</span>
                 </div>
                 <h3 className="text-lg font-bold text-gray-900">{STEPS[step].title}</h3>

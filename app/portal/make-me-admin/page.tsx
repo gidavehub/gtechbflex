@@ -43,9 +43,6 @@ export default function MakeMeAdminPage() {
   return (
     <div className="flex items-center justify-center min-h-[60vh]">
       <div className="bg-white p-8 rounded-3xl shadow-xl max-w-sm w-full text-center border border-gray-100">
-        <div className="w-16 h-16 bg-gold-50 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-gold-200">
-          <Sparkles size={32} className="text-gold-500" />
-        </div>
         <h1 className="text-xl font-bold text-gray-900 mb-2">Seed Admin</h1>
         <p className="text-sm text-gray-500 mb-6">
           Click the button below to grant admin privileges to <strong className="text-gray-800">{portalUser?.email}</strong>.

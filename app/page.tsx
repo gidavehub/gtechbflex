@@ -66,11 +66,15 @@ export default function HomePage() {
 
   if (isLoading) return <LoadingScreen />;
 
+  const totalCurrent = programs.reduce((s, p) => s + (p.current_participants || 0), 0);
+  const totalMax = programs.reduce((s, p) => s + (p.max_participants || 0), 0);
+  const fillRate = totalMax > 0 ? Math.round((totalCurrent / totalMax) * 100) : 0;
+
   const stats = [
     { icon: GraduationCap, value: programs.length, label: 'Programs' },
-    { icon: Users, value: programs.reduce((s, p) => s + (p.current_participants || 0), 0), label: 'Participants' },
+    { icon: Users, value: totalCurrent, label: 'Participants' },
     { icon: Briefcase, value: programs.filter(p => p.is_applications_open).length, label: 'Open Now' },
-    { icon: TrendingUp, value: '95%', label: 'Success Rate' },
+    { icon: TrendingUp, value: `${fillRate}%`, label: 'Fill Rate' },
   ];
 
   return (
@@ -97,7 +101,6 @@ export default function HomePage() {
 
           <div className="relative z-10">
             <div className="flex items-center gap-2 mb-3">
-              <Sparkles size={16} className="text-gold-400" />
               <span className="text-xs font-semibold uppercase tracking-widest text-gold-400">B-Flex Registration Portal</span>
             </div>
             <h1 className="text-3xl md:text-4xl font-bold mb-3">

@@ -73,7 +73,6 @@ export default function SignUpPage() {
               <span className="text-sm font-normal text-gray-400 ml-2">Portal</span>
             </h1>
             <p className="text-sm text-gray-500 mt-1 flex items-center justify-center gap-1.5">
-              <Sparkles size={12} className="text-gold-400" />
               Create your account to get started
             </p>
           </div>

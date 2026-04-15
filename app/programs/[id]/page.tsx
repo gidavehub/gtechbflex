@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { motion } from 'framer-motion';
 import {
   ArrowLeft, ArrowRight, Calendar, MapPin, Users, CheckCircle,
-  GraduationCap, Briefcase, Target, TrendingUp, Sparkles, Share2
+  GraduationCap, Briefcase, Target, TrendingUp, Share2
 } from 'lucide-react';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
@@ -20,7 +20,7 @@ const typeIcons: Record<string, any> = {
   investment_readiness: TrendingUp,
   business_linkage: Briefcase,
   incubation: Target,
-  acceleration: Sparkles,
+  acceleration: TrendingUp,
 };
 
 const typeLabels: Record<string, string> = {
