@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { ArrowLeft, CheckCircle, XCircle, Clock, Save, Send } from 'lucide-react';
+import { ArrowLeft, CheckCircle, XCircle, Clock, Save } from 'lucide-react';
 import CustomTextarea from '@/components/ui/CustomTextarea';
 import { useToast } from '@/context/ToastContext';
 import { getApplication, updateApplication, getProgram } from '@/lib/firestore';
@@ -39,20 +39,25 @@ export default function AdminApplicationDetail() {
       await updateApplication(id, { status: status as any, admin_notes: notes });
       setApp(prev => prev ? { ...prev, status: status as any, admin_notes: notes } : null);
 
-      // Send email notification
-      try {
-        await fetch('/api/email/send', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            type: status === 'accepted' ? 'application_accepted' : 'application_rejected',
-            to: app?.email,
-            name: app?.full_name?.split(' ')[0],
-            programName: program?.title || 'G-Tech Program',
-            reason: notes || undefined,
-          }),
-        });
-      } catch {}
+      // Send email notification via the applicant's email from answers or legacy field
+      const email = app?.answers?.email || app?.email;
+      const name = app?.answers?.full_name || app?.full_name;
+
+      if (email) {
+        try {
+          await fetch('/api/email/send', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              type: status === 'accepted' ? 'application_accepted' : 'application_rejected',
+              to: email,
+              name: name?.split(' ')[0] || 'Applicant',
+              programName: program?.title || 'G-Tech Program',
+              reason: notes || undefined,
+            }),
+          });
+        } catch {}
+      }
 
       toast({ title: `Application ${status.replace('_', ' ')}`, type: 'success' });
     } catch {
@@ -82,6 +87,53 @@ export default function AdminApplicationDetail() {
 
   const current = statusConfig[app.status] || statusConfig.under_review;
 
+  // Determine if this is a new-format (dynamic answers) or old-format (legacy fields) application
+  const hasAnswers = app.answers && Object.keys(app.answers).length > 0;
+  const formFields = program?.fields || [];
+
+  // Build display data
+  const displayRows: { label: string; value: string }[] = [];
+
+  if (hasAnswers) {
+    // New format: use program form fields for labels, answers for values
+    formFields.forEach(field => {
+      if (field.type === 'heading' || field.type === 'paragraph') return;
+      let val = app.answers[field.id];
+      if (val === undefined || val === null) return;
+      if (Array.isArray(val)) val = val.join(', ');
+      if (typeof val === 'boolean') val = val ? 'Yes' : 'No';
+      displayRows.push({ label: field.label, value: String(val) });
+    });
+
+    // Also show any answers without matching form field (in case form was changed)
+    Object.entries(app.answers).forEach(([key, val]) => {
+      if (formFields.some(f => f.id === key)) return; // Already shown
+      if (val === undefined || val === null) return;
+      if (Array.isArray(val)) val = val.join(', ');
+      if (typeof val === 'boolean') val = val ? 'Yes' : 'No';
+      displayRows.push({ label: key.replace(/_/g, ' '), value: String(val) });
+    });
+  } else {
+    // Legacy format: hardcoded fields
+    if (app.full_name) displayRows.push({ label: 'Full Name', value: app.full_name });
+    if (app.email) displayRows.push({ label: 'Email', value: app.email });
+    if (app.phone) displayRows.push({ label: 'Phone', value: app.phone });
+    if (app.gender) displayRows.push({ label: 'Gender', value: app.gender });
+    if (app.country) displayRows.push({ label: 'Country', value: app.country });
+    if (app.region) displayRows.push({ label: 'Region', value: app.region });
+    if (app.business_name) displayRows.push({ label: 'Business Name', value: app.business_name });
+    if (app.business_sector) displayRows.push({ label: 'Business Sector', value: app.business_sector });
+    if (app.formalization_status) displayRows.push({ label: 'Formalization', value: app.formalization_status });
+    if (app.year_established) displayRows.push({ label: 'Year Established', value: String(app.year_established) });
+    if (app.description_of_need) displayRows.push({ label: 'Description of Need', value: app.description_of_need });
+    if (app.program_interests?.length) displayRows.push({ label: 'Program Interests', value: app.program_interests.join(', ') });
+  }
+
+  // Get applicant name for the header
+  const applicantName = hasAnswers
+    ? (app.answers.full_name || app.answers.name || Object.values(app.answers)[0] || 'Unnamed')
+    : (app.full_name || 'Unnamed');
+
   return (
     <div className="max-w-4xl space-y-6">
       <button onClick={() => router.back()} className="flex items-center gap-2 text-sm font-semibold text-gray-500 hover:text-gray-900 transition-colors">
@@ -90,53 +142,40 @@ export default function AdminApplicationDetail() {
 
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
         <div className="flex items-center justify-between mb-4">
-          <h1 className="text-xl font-bold text-gray-900">{app.full_name}</h1>
+          <div>
+            <h1 className="text-xl font-bold text-gray-900">{applicantName}</h1>
+            {program && <p className="text-xs text-gray-400 mt-0.5">Applied to: {program.title}</p>}
+          </div>
           <span className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 ${current.class}`}>
             <current.icon size={14} /> {app.status.replace('_', ' ')}
           </span>
         </div>
       </motion.div>
 
-      <div className="grid md:grid-cols-2 gap-6">
-        {/* Personal */}
-        <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
-          <h3 className="text-sm font-bold text-gray-900 mb-4">Personal Information</h3>
-          <div className="space-y-3">
-            <DetailRow label="Email" value={app.email} />
-            <DetailRow label="Phone" value={app.phone} />
-            <DetailRow label="Gender" value={app.gender} />
-            <DetailRow label="Country" value={app.country} />
-            <DetailRow label="Region" value={app.region} />
-          </div>
-        </div>
-
-        {/* Business */}
-        <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
-          <h3 className="text-sm font-bold text-gray-900 mb-4">Business Information</h3>
-          <div className="space-y-3">
-            <DetailRow label="Business Name" value={app.business_name} />
-            <DetailRow label="Sector" value={app.business_sector} />
-            <DetailRow label="Formalization" value={app.formalization_status} />
-            <DetailRow label="Year Est." value={String(app.year_established || '')} />
-            <DetailRow label="Program" value={program?.title || app.program_id} />
-          </div>
+      {/* Application answers */}
+      <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
+        <h3 className="text-sm font-bold text-gray-900 mb-4">Application Details</h3>
+        <div className="space-y-3">
+          {displayRows.map((row, idx) => (
+            <div key={idx} className="flex items-start justify-between py-2 border-b border-gray-50 last:border-0">
+              <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">{row.label}</span>
+              <span className="text-sm font-bold text-gray-900 text-right max-w-[60%] whitespace-pre-wrap">{row.value || '—'}</span>
+            </div>
+          ))}
+          {displayRows.length === 0 && (
+            <p className="text-sm text-gray-400 text-center py-4">No application data found.</p>
+          )}
         </div>
       </div>
 
-      {/* Description of need */}
+      {/* Submitted date */}
       <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
-        <h3 className="text-sm font-bold text-gray-900 mb-2">Description of Need</h3>
-        <p className="text-sm text-gray-600 leading-relaxed">{app.description_of_need || '—'}</p>
-        {app.program_interests?.length > 0 && (
-          <div className="mt-4">
-            <h4 className="text-xs font-semibold text-gray-400 uppercase mb-2">Program Interests</h4>
-            <div className="flex flex-wrap gap-2">
-              {app.program_interests.map(i => (
-                <span key={i} className="px-3 py-1 rounded-xl bg-gold-50 text-gold-700 border border-gold-200 text-xs font-bold">{i}</span>
-              ))}
-            </div>
-          </div>
-        )}
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Submitted</span>
+          <span className="text-sm font-bold text-gray-900">
+            {app.created_at?.toDate ? new Date(app.created_at.toDate()).toLocaleString() : '—'}
+          </span>
+        </div>
       </div>
 
       {/* Admin notes */}
@@ -160,15 +199,6 @@ export default function AdminApplicationDetail() {
           <Clock size={18} /> Under Review
         </button>
       </div>
-    </div>
-  );
-}
-
-function DetailRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-start justify-between py-2 border-b border-gray-50 last:border-0">
-      <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">{label}</span>
-      <span className="text-sm font-bold text-gray-900 text-right">{value || '—'}</span>
     </div>
   );
 }

@@ -55,16 +55,6 @@ export async function getApplications(): Promise<Application[]> {
   return snap.docs.map(d => ({ id: d.id, ...d.data() } as Application));
 }
 
-export async function getApplicationsByUser(userId: string): Promise<Application[]> {
-  const q = query(
-    collection(db, 'applications'),
-    where('portal_user_id', '==', userId),
-    orderBy('created_at', 'desc')
-  );
-  const snap = await getDocs(q);
-  return snap.docs.map(d => ({ id: d.id, ...d.data() } as Application));
-}
-
 export async function getApplicationsByProgram(programId: string): Promise<Application[]> {
   const q = query(
     collection(db, 'applications'),
@@ -97,23 +87,29 @@ export async function updateApplication(id: string, data: Partial<Application>):
   });
 }
 
-export async function checkExistingApplication(programId: string, userId: string): Promise<boolean> {
+/**
+ * Check if an application already exists for a given email + program combo.
+ * Prevents duplicate submissions without requiring user accounts.
+ */
+export async function checkExistingApplicationByEmail(programId: string, email: string): Promise<boolean> {
   const q = query(
     collection(db, 'applications'),
-    where('program_id', '==', programId),
-    where('portal_user_id', '==', userId)
+    where('program_id', '==', programId)
   );
   const snap = await getDocs(q);
-  // Filter out withdrawn/rejected
+  // Check in answers.email or legacy email field
   const active = snap.docs.filter(d => {
-    const status = d.data().status;
-    return status !== 'withdrawn' && status !== 'rejected';
+    const data = d.data();
+    const status = data.status;
+    if (status === 'withdrawn' || status === 'rejected') return false;
+    const appEmail = data.answers?.email || data.email || '';
+    return appEmail.toLowerCase() === email.toLowerCase();
   });
   return active.length > 0;
 }
 
 // ==========================================
-// USERS
+// ADMIN USERS (kept for admin auth)
 // ==========================================
 export async function getUser(uid: string): Promise<PortalUser | null> {
   const snap = await getDoc(doc(db, 'users', uid));
@@ -121,59 +117,9 @@ export async function getUser(uid: string): Promise<PortalUser | null> {
   return { uid: snap.id, ...snap.data() } as PortalUser;
 }
 
-export async function createUser(uid: string, data: Omit<PortalUser, 'uid' | 'created_at' | 'updated_at'>): Promise<void> {
-  await setDoc(doc(db, 'users', uid), {
-    ...data,
-    created_at: Timestamp.now(),
-    updated_at: Timestamp.now(),
-  });
-}
-
-export async function updateUser(uid: string, data: Partial<PortalUser>): Promise<void> {
-  await updateDoc(doc(db, 'users', uid), {
-    ...data,
-    updated_at: Timestamp.now(),
-  });
-}
-
-export async function getAllUsers(): Promise<PortalUser[]> {
-  const q = query(collection(db, 'users'), orderBy('created_at', 'desc'));
-  const snap = await getDocs(q);
-  return snap.docs.map(d => ({ uid: d.id, ...d.data() } as PortalUser));
-}
-
 export async function getUserByEmail(email: string): Promise<PortalUser | null> {
   const q = query(collection(db, 'users'), where('email', '==', email.toLowerCase()), limit(1));
   const snap = await getDocs(q);
   if (snap.empty) return null;
   return { uid: snap.docs[0].id, ...snap.docs[0].data() } as PortalUser;
-}
-
-// ==========================================
-// OTP
-// ==========================================
-export async function saveOTP(email: string, hashedCode: string, expiresAt: Date): Promise<void> {
-  await setDoc(doc(db, 'otp_codes', email), {
-    code: hashedCode,
-    expires_at: Timestamp.fromDate(expiresAt),
-    attempts: 0,
-  });
-}
-
-export async function getOTP(email: string): Promise<{ code: string; expires_at: Timestamp; attempts: number } | null> {
-  const snap = await getDoc(doc(db, 'otp_codes', email));
-  if (!snap.exists()) return null;
-  return snap.data() as { code: string; expires_at: Timestamp; attempts: number };
-}
-
-export async function incrementOTPAttempts(email: string): Promise<void> {
-  const otpRef = doc(db, 'otp_codes', email);
-  const snap = await getDoc(otpRef);
-  if (snap.exists()) {
-    await updateDoc(otpRef, { attempts: (snap.data().attempts || 0) + 1 });
-  }
-}
-
-export async function deleteOTP(email: string): Promise<void> {
-  await deleteDoc(doc(db, 'otp_codes', email));
 }

@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { Search, Download, FileText, Filter } from 'lucide-react';
+import { Search, Download, FileText } from 'lucide-react';
 import { getApplications, getPrograms } from '@/lib/firestore';
 import type { Application, Program } from '@/lib/types';
 
@@ -13,6 +13,27 @@ const statusColors: Record<string, string> = {
   rejected: 'bg-red-100 text-red-700',
   withdrawn: 'bg-gray-100 text-gray-600',
 };
+
+function getApplicantName(app: Application): string {
+  if (app.answers?.full_name) return app.answers.full_name;
+  if (app.answers?.name) return app.answers.name;
+  if (app.full_name) return app.full_name;
+  // Try to find any name-like field in answers
+  if (app.answers) {
+    for (const [key, val] of Object.entries(app.answers)) {
+      if ((key.includes('name') || key.includes('Name')) && typeof val === 'string') return val;
+    }
+  }
+  return 'Unnamed';
+}
+
+function getApplicantEmail(app: Application): string {
+  return app.answers?.email || app.email || '';
+}
+
+function getApplicantBusiness(app: Application): string {
+  return app.answers?.business_name || app.business_name || '';
+}
 
 export default function AdminApplicationsPage() {
   const router = useRouter();
@@ -38,7 +59,12 @@ export default function AdminApplicationsPage() {
     let result = apps;
     if (search) {
       const q = search.toLowerCase();
-      result = result.filter(a => a.full_name.toLowerCase().includes(q) || a.email.toLowerCase().includes(q) || a.business_name?.toLowerCase().includes(q));
+      result = result.filter(a => {
+        const name = getApplicantName(a).toLowerCase();
+        const email = getApplicantEmail(a).toLowerCase();
+        const business = getApplicantBusiness(a).toLowerCase();
+        return name.includes(q) || email.includes(q) || business.includes(q);
+      });
     }
     if (statusFilter) result = result.filter(a => a.status === statusFilter);
     return result;
@@ -47,13 +73,34 @@ export default function AdminApplicationsPage() {
   const getProgramTitle = (id: string) => programs.find(p => p.id === id)?.title || '—';
 
   const handleExport = () => {
-    const headers = ['Name', 'Email', 'Phone', 'Gender', 'Country', 'Region', 'Business', 'Sector', 'Status', 'Date'];
-    const rows = filtered.map(a => [
-      a.full_name, a.email, a.phone, a.gender, a.country, a.region,
-      a.business_name, a.business_sector, a.status,
-      a.created_at?.toDate ? new Date(a.created_at.toDate()).toLocaleDateString() : '',
-    ]);
-    const csv = [headers, ...rows].map(r => r.map(c => `"${c || ''}"`).join(',')).join('\n');
+    // Gather all unique answer keys across all applications
+    const allKeys = new Set<string>();
+    filtered.forEach(a => {
+      if (a.answers) {
+        Object.keys(a.answers).forEach(k => allKeys.add(k));
+      }
+    });
+    const dynamicKeys = Array.from(allKeys);
+
+    const headers = ['Name', 'Email', 'Business', 'Program', 'Status', 'Date', ...dynamicKeys.map(k => k.replace(/_/g, ' '))];
+    const rows = filtered.map(a => {
+      const base = [
+        getApplicantName(a),
+        getApplicantEmail(a),
+        getApplicantBusiness(a),
+        getProgramTitle(a.program_id),
+        a.status,
+        a.created_at?.toDate ? new Date(a.created_at.toDate()).toLocaleDateString() : '',
+      ];
+      const dynamic = dynamicKeys.map(k => {
+        const val = a.answers?.[k];
+        if (Array.isArray(val)) return val.join('; ');
+        if (typeof val === 'boolean') return val ? 'Yes' : 'No';
+        return String(val ?? '');
+      });
+      return [...base, ...dynamic];
+    });
+    const csv = [headers, ...rows].map(r => r.map(c => `"${(c || '').replace(/"/g, '""')}"`).join(',')).join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -112,20 +159,27 @@ export default function AdminApplicationsPage() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((app, idx) => (
-                  <tr key={app.id} onClick={() => router.push(`/admin/applications/${app.id}`)} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/50 cursor-pointer transition-colors">
-                    <td className="px-5 py-3.5">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-gold-50 flex items-center justify-center text-gold-600 font-bold text-xs border border-gold-200">{app.full_name?.split(' ').map(n => n[0]).join('').slice(0, 2)}</div>
-                        <div><p className="font-semibold text-gray-900">{app.full_name}</p><p className="text-xs text-gray-400">{app.email}</p></div>
-                      </div>
-                    </td>
-                    <td className="px-5 py-3.5 text-xs text-gray-600">{app.business_name || '—'}</td>
-                    <td className="px-5 py-3.5 text-xs text-gray-500">{getProgramTitle(app.program_id)}</td>
-                    <td className="px-5 py-3.5"><span className={`px-2.5 py-1 rounded-full text-xs font-bold ${statusColors[app.status]}`}>{app.status?.replace('_', ' ')}</span></td>
-                    <td className="px-5 py-3.5 text-xs text-gray-400">{app.created_at?.toDate ? new Date(app.created_at.toDate()).toLocaleDateString() : '—'}</td>
-                  </tr>
-                ))}
+                {filtered.map((app) => {
+                  const name = getApplicantName(app);
+                  const email = getApplicantEmail(app);
+                  const business = getApplicantBusiness(app);
+                  const initials = name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
+
+                  return (
+                    <tr key={app.id} onClick={() => router.push(`/admin/applications/${app.id}`)} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/50 cursor-pointer transition-colors">
+                      <td className="px-5 py-3.5">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-gold-50 flex items-center justify-center text-gold-600 font-bold text-xs border border-gold-200">{initials}</div>
+                          <div><p className="font-semibold text-gray-900">{name}</p><p className="text-xs text-gray-400">{email}</p></div>
+                        </div>
+                      </td>
+                      <td className="px-5 py-3.5 text-xs text-gray-600">{business || '—'}</td>
+                      <td className="px-5 py-3.5 text-xs text-gray-500">{getProgramTitle(app.program_id)}</td>
+                      <td className="px-5 py-3.5"><span className={`px-2.5 py-1 rounded-full text-xs font-bold ${statusColors[app.status]}`}>{app.status?.replace('_', ' ')}</span></td>
+                      <td className="px-5 py-3.5 text-xs text-gray-400">{app.created_at?.toDate ? new Date(app.created_at.toDate()).toLocaleDateString() : '—'}</td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

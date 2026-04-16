@@ -13,7 +13,6 @@ import Footer from '@/components/layout/Footer';
 import LoadingScreen from '@/components/ui/LoadingScreen';
 import { getProgram } from '@/lib/firestore';
 import type { Program } from '@/lib/types';
-import { useAuth } from '@/context/AuthContext';
 
 const typeIcons: Record<string, any> = {
   mentorship: GraduationCap,
@@ -34,7 +33,6 @@ const typeLabels: Record<string, string> = {
 export default function ProgramDetailPage() {
   const params = useParams();
   const id = params?.id as string;
-  const { firebaseUser } = useAuth();
   const [program, setProgram] = useState<Program | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [copied, setCopied] = useState(false);
@@ -154,7 +152,7 @@ export default function ProgramDetailPage() {
         >
           {program.is_applications_open && spotsLeft > 0 ? (
             <Link
-              href={firebaseUser ? `/portal/apply/${program.id}` : `/portal/signin?redirect=/portal/apply/${program.id}`}
+              href={`/programs/${program.id}/apply`}
               className="btn-primary inline-flex items-center gap-2 text-base px-8 py-4"
             >
               Apply Now <ArrowRight size={18} />

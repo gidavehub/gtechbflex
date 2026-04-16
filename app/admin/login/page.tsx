@@ -1,19 +1,16 @@
 'use client';
 
 import React, { useState } from 'react';
-import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { Eye, EyeOff, LogIn, ArrowRight, Sparkles } from 'lucide-react';
+import { Eye, EyeOff, ArrowRight, Shield } from 'lucide-react';
 import Image from 'next/image';
 import CustomInput from '@/components/ui/CustomInput';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
 
-export default function SignInPage() {
+export default function AdminLoginPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const redirect = searchParams?.get('redirect') || '/portal';
   const { signIn } = useAuth();
   const { toast } = useToast();
   const [email, setEmail] = useState('');
@@ -33,8 +30,8 @@ export default function SignInPage() {
     if (error) {
       toast({ title: 'Sign in failed', description: error, type: 'error' });
     } else {
-      toast({ title: 'Welcome back!', type: 'success' });
-      router.push(redirect);
+      toast({ title: 'Welcome back, Admin!', type: 'success' });
+      router.push('/admin');
     }
   };
 
@@ -56,10 +53,11 @@ export default function SignInPage() {
             </motion.div>
             <h1 className="text-2xl font-bold text-gray-900">
               B-<span className="text-gold-gradient">Flex</span>
-              <span className="text-sm font-normal text-gray-400 ml-2">Portal</span>
+              <span className="text-sm font-normal text-gray-400 ml-2">Admin</span>
             </h1>
             <p className="text-sm text-gray-500 mt-1 flex items-center justify-center gap-1.5">
-              Sign in to your account
+              <Shield size={14} className="text-gold-400" />
+              Administrator Sign In
             </p>
           </div>
 
@@ -72,8 +70,8 @@ export default function SignInPage() {
                 value={email}
                 onChange={setEmail}
                 required
-                placeholder="you@example.com"
-                id="signin-email"
+                placeholder="admin@gtech.gm"
+                id="admin-login-email"
               />
               <div>
                 <CustomInput
@@ -83,7 +81,7 @@ export default function SignInPage() {
                   onChange={setPassword}
                   required
                   placeholder="••••••••"
-                  id="signin-password"
+                  id="admin-login-password"
                 />
                 <button
                   type="button"
@@ -110,11 +108,8 @@ export default function SignInPage() {
               </button>
             </form>
 
-            <p className="text-center text-sm text-gray-500 mt-6">
-              Don&apos;t have an account?{' '}
-              <Link href="/portal/signup" className="text-gold-500 font-semibold hover:underline">
-                Create one
-              </Link>
+            <p className="text-center text-xs text-gray-400 mt-6">
+              This login is for administrators only.
             </p>
           </div>
         </div>

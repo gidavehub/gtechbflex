@@ -2,19 +2,27 @@
 
 import React, { useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import AdminSidebar from '@/components/admin/AdminSidebar';
 import LoadingScreen from '@/components/ui/LoadingScreen';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const { firebaseUser, isAdmin, isLoading } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
+
+  const isLoginRoute = pathname?.startsWith('/admin/login');
 
   useEffect(() => {
-    if (!isLoading && (!firebaseUser || !isAdmin)) {
-      router.push('/portal/signin');
+    if (!isLoading && (!firebaseUser || !isAdmin) && !isLoginRoute) {
+      router.push('/admin/login');
     }
-  }, [isLoading, firebaseUser, isAdmin, router]);
+  }, [isLoading, firebaseUser, isAdmin, isLoginRoute, router]);
+
+  // Login page — render without sidebar
+  if (isLoginRoute) {
+    return <>{children}</>;
+  }
 
   if (isLoading || !firebaseUser || !isAdmin) {
     return <LoadingScreen />;

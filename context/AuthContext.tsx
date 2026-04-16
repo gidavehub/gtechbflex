@@ -1,12 +1,10 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
-import { doc, setDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
-import { getUser, getUserByEmail, createUser } from '@/lib/firestore';
+import { getUser, getUserByEmail } from '@/lib/firestore';
 import type { PortalUser } from '@/lib/types';
 
-// Mock Firebase User type to keep compatibility with rest of app
+// Custom user type for admin auth
 export interface CustomUser {
   uid: string;
   email: string | null;
@@ -17,9 +15,7 @@ interface AuthContextType {
   portalUser: PortalUser | null;
   isLoading: boolean;
   isAdmin: boolean;
-  isVerified: boolean;
   signIn: (email: string, password: string) => Promise<{ error?: string }>;
-  signUp: (data: { first_name: string; last_name: string; email: string; password: string }) => Promise<{ error?: string }>;
   signOut: () => Promise<void>;
   refreshUser: () => Promise<void>;
 }
@@ -63,7 +59,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!userDoc) {
         return { error: 'Account not found' };
       }
-      // Simple exact match (since we're restricted to pure FireStore)
+      // Only allow admin sign-in
+      if (userDoc.role !== 'admin') {
+        return { error: 'This login is for administrators only' };
+      }
+      // Simple exact match (since we're restricted to pure Firestore)
       if ((userDoc as any).password !== password) {
         return { error: 'Invalid password' };
       }
@@ -73,44 +73,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return {};
     } catch (err: any) {
       return { error: err.message || 'Failed to sign in' };
-    }
-  };
-
-  const signUp = async (data: { first_name: string; last_name: string; email: string; password: string }) => {
-    try {
-      const existing = await getUserByEmail(data.email);
-      if (existing) {
-        return { error: 'Email already in use' };
-      }
-
-      // Generate random ID
-      const newUid = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 15);
-      
-      await setDoc(doc(db, 'users', newUid), {
-        first_name: data.first_name,
-        last_name: data.last_name,
-        email: data.email.toLowerCase(),
-        password: data.password, // Plain storage based on pure Firestore architecture requirement
-        role: 'user',
-        verified: false,
-        created_at: new Date(),
-        updated_at: new Date()
-      });
-
-      localStorage.setItem('bflex_uid', newUid);
-      await loadPortalUser(newUid);
-
-      // Send OTP via API route
-      try {
-        await fetch('/api/email/verify', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: data.email, name: data.first_name }),
-        });
-      } catch {}
-      return {};
-    } catch (err: any) {
-      return { error: err.message || 'Failed to create account' };
     }
   };
 
@@ -134,9 +96,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         portalUser,
         isLoading,
         isAdmin: portalUser?.role === 'admin',
-        isVerified: portalUser?.verified ?? false,
         signIn,
-        signUp,
         signOut,
         refreshUser,
       }}

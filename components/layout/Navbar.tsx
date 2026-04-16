@@ -4,12 +4,12 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Menu, X, LogIn, LayoutDashboard } from 'lucide-react';
+import { Menu, X, LayoutDashboard, Shield } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 
 export default function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { firebaseUser, portalUser, isAdmin } = useAuth();
+  const { firebaseUser, isAdmin } = useAuth();
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-[100] bg-white/80 backdrop-blur-xl border-b border-gray-100">
@@ -27,32 +27,22 @@ export default function Navbar() {
 
           {/* Desktop nav */}
           <div className="hidden md:flex items-center gap-3">
-            {firebaseUser ? (
-              <>
-                {isAdmin && (
-                  <Link
-                    href="/admin"
-                    className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-all"
-                  >
-                    <LayoutDashboard size={16} />
-                    Admin
-                  </Link>
-                )}
-                <Link
-                  href="/portal"
-                  className="flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-bold bg-gold-400 text-white shadow-gold hover:shadow-gold-lg transition-all hover:-translate-y-0.5"
-                >
-                  <LayoutDashboard size={16} />
-                  My Portal
-                </Link>
-              </>
-            ) : (
+            {firebaseUser && isAdmin && (
               <Link
-                href="/portal/signin"
+                href="/admin"
                 className="flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-bold bg-gold-400 text-white shadow-gold hover:shadow-gold-lg transition-all hover:-translate-y-0.5"
               >
-                <LogIn size={16} />
-                Sign In
+                <LayoutDashboard size={16} />
+                Admin Panel
+              </Link>
+            )}
+            {(!firebaseUser || !isAdmin) && (
+              <Link
+                href="/admin/login"
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <Shield size={12} />
+                Admin
               </Link>
             )}
           </div>
@@ -77,35 +67,24 @@ export default function Navbar() {
             className="md:hidden border-t border-gray-100 bg-white"
           >
             <div className="p-4 space-y-2">
-              {firebaseUser ? (
-                <>
-                  {isAdmin && (
-                    <Link
-                      href="/admin"
-                      onClick={() => setMobileOpen(false)}
-                      className="flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-all"
-                    >
-                      <LayoutDashboard size={16} />
-                      Admin Dashboard
-                    </Link>
-                  )}
-                  <Link
-                    href="/portal"
-                    onClick={() => setMobileOpen(false)}
-                    className="flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-bold text-white bg-gold-400 shadow-gold transition-all"
-                  >
-                    <LayoutDashboard size={16} />
-                    My Portal
-                  </Link>
-                </>
-              ) : (
+              {firebaseUser && isAdmin && (
                 <Link
-                  href="/portal/signin"
+                  href="/admin"
                   onClick={() => setMobileOpen(false)}
                   className="flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-bold text-white bg-gold-400 shadow-gold transition-all"
                 >
-                  <LogIn size={16} />
-                  Sign In
+                  <LayoutDashboard size={16} />
+                  Admin Panel
+                </Link>
+              )}
+              {(!firebaseUser || !isAdmin) && (
+                <Link
+                  href="/admin/login"
+                  onClick={() => setMobileOpen(false)}
+                  className="flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-medium text-gray-500 hover:bg-gray-50 transition-all"
+                >
+                  <Shield size={14} />
+                  Admin Login
                 </Link>
               )}
             </div>

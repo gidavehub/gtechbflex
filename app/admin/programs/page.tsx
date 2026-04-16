@@ -2,14 +2,15 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { GraduationCap, Plus, ToggleLeft, ToggleRight, Users } from 'lucide-react';
+import { GraduationCap, Plus, ToggleLeft, ToggleRight, Users, Layers, Pencil } from 'lucide-react';
 import CustomInput from '@/components/ui/CustomInput';
 import CustomDropdown from '@/components/ui/CustomDropdown';
 import CustomTextarea from '@/components/ui/CustomTextarea';
 import Modal from '@/components/ui/Modal';
+import FormBuilder from '@/components/admin/FormBuilder';
 import { useToast } from '@/context/ToastContext';
 import { getPrograms, createProgram, updateProgram } from '@/lib/firestore';
-import { PROGRAM_TYPES } from '@/lib/types';
+import { PROGRAM_TYPES, DEFAULT_FORM_FIELDS } from '@/lib/types';
 import type { Program } from '@/lib/types';
 
 const typeLabels: Record<string, string> = {
@@ -26,6 +27,7 @@ export default function AdminProgramsPage() {
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [editingProgram, setEditingProgram] = useState<Program | null>(null);
   const [form, setForm] = useState({
     title: '', description: '', program_type: '', max_participants: '30', location: '', start_date: '',
   });
@@ -57,11 +59,11 @@ export default function AdminProgramsPage() {
         is_applications_open: true,
         max_participants: parseInt(form.max_participants) || 30,
         current_participants: 0,
-        questions: [],
+        fields: [...DEFAULT_FORM_FIELDS],
         location: form.location,
         start_date: form.start_date,
       });
-      toast({ title: 'Program created!', type: 'success' });
+      toast({ title: 'Program created with default form!', type: 'success' });
       setShowCreate(false);
       setForm({ title: '', description: '', program_type: '', max_participants: '30', location: '', start_date: '' });
       load();
@@ -113,18 +115,27 @@ export default function AdminProgramsPage() {
                   <p className="text-xs text-gray-500 line-clamp-2 mb-2">{p.description}</p>
                   <div className="flex items-center gap-4 text-xs text-gray-400">
                     <span className="flex items-center gap-1"><Users size={12} /> {p.current_participants || 0}/{p.max_participants}</span>
+                    <span className="flex items-center gap-1"><Layers size={12} /> {(p.fields || []).length} form fields</span>
                     {p.location && <span>{p.location}</span>}
                   </div>
                 </div>
-                <button
-                  onClick={() => toggleApplications(p.id, p.is_applications_open)}
-                  className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold transition-all ${
-                    p.is_applications_open ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'
-                  }`}
-                >
-                  {p.is_applications_open ? <ToggleRight size={16} /> : <ToggleLeft size={16} />}
-                  {p.is_applications_open ? 'Open' : 'Closed'}
-                </button>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    onClick={() => setEditingProgram(p)}
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-gray-100 text-gray-600 hover:bg-gold-50 hover:text-gold-700 transition-all"
+                  >
+                    <Pencil size={14} /> Edit Form
+                  </button>
+                  <button
+                    onClick={() => toggleApplications(p.id, p.is_applications_open)}
+                    className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold transition-all ${
+                      p.is_applications_open ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'
+                    }`}
+                  >
+                    {p.is_applications_open ? <ToggleRight size={16} /> : <ToggleLeft size={16} />}
+                    {p.is_applications_open ? 'Open' : 'Closed'}
+                  </button>
+                </div>
               </div>
             </motion.div>
           ))}
@@ -144,12 +155,27 @@ export default function AdminProgramsPage() {
             <CustomInput label="Location" value={form.location} onChange={v => set('location', v)} placeholder="e.g. Banjul" />
           </div>
           <CustomInput label="Start Date" value={form.start_date} onChange={v => set('start_date', v)} placeholder="e.g. May 2026" />
+          <div className="bg-blue-50 rounded-xl p-3 border border-blue-100">
+            <p className="text-xs text-blue-700 font-medium">📋 A default application form will be created with the program. You can customize it afterwards using the Form Builder.</p>
+          </div>
           <button onClick={handleCreate} disabled={creating} className="btn-primary w-full flex items-center justify-center gap-2 py-4 disabled:opacity-50">
             {creating ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Plus size={16} />}
             Create Program
           </button>
         </div>
       </Modal>
+
+      {/* Form Builder */}
+      {editingProgram && (
+        <FormBuilder
+          program={editingProgram}
+          onClose={() => setEditingProgram(null)}
+          onSaved={(fields) => {
+            setPrograms(prev => prev.map(p => p.id === editingProgram.id ? { ...p, fields } : p));
+            setEditingProgram(null);
+          }}
+        />
+      )}
     </div>
   );
 }
