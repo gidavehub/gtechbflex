@@ -3,7 +3,7 @@ import {
   query, where, orderBy, limit, Timestamp, setDoc
 } from 'firebase/firestore';
 import { db } from './firebase';
-import type { Program, Application, PortalUser } from './types';
+import type { Program, Application, PortalUser, ProgramType } from './types';
 
 // ==========================================
 // PROGRAMS
@@ -88,13 +88,13 @@ export async function updateApplication(id: string, data: Partial<Application>):
 }
 
 /**
- * Check if an application already exists for a given email + program combo.
+ * Check if an application already exists for a given email + program type combo.
  * Prevents duplicate submissions without requiring user accounts.
  */
-export async function checkExistingApplicationByEmail(programId: string, email: string): Promise<boolean> {
+export async function checkExistingApplicationByEmail(programType: string, email: string): Promise<boolean> {
   const q = query(
     collection(db, 'applications'),
-    where('program_id', '==', programId)
+    where('program_type', '==', programType)
   );
   const snap = await getDocs(q);
   // Check in answers.email or legacy email field
@@ -106,6 +106,19 @@ export async function checkExistingApplicationByEmail(programId: string, email: 
     return appEmail.toLowerCase() === email.toLowerCase();
   });
   return active.length > 0;
+}
+
+/**
+ * Get applications filtered by program type.
+ */
+export async function getApplicationsByType(programType: ProgramType): Promise<Application[]> {
+  const q = query(
+    collection(db, 'applications'),
+    where('program_type', '==', programType),
+    orderBy('created_at', 'desc')
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map(d => ({ id: d.id, ...d.data() } as Application));
 }
 
 // ==========================================

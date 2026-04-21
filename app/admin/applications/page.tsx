@@ -4,8 +4,16 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { Search, Download, FileText } from 'lucide-react';
-import { getApplications, getPrograms } from '@/lib/firestore';
-import type { Application, Program } from '@/lib/types';
+import { getApplications } from '@/lib/firestore';
+import type { Application } from '@/lib/types';
+
+const TYPE_LABELS: Record<string, string> = {
+  mentorship: 'Mentorship',
+  investment_readiness: 'Investment Readiness',
+  business_linkage: 'Business Linkage',
+  incubation: 'Incubation',
+  acceleration: 'Acceleration',
+};
 
 const statusColors: Record<string, string> = {
   under_review: 'bg-amber-100 text-amber-700',
@@ -18,7 +26,6 @@ function getApplicantName(app: Application): string {
   if (app.answers?.full_name) return app.answers.full_name;
   if (app.answers?.name) return app.answers.name;
   if (app.full_name) return app.full_name;
-  // Try to find any name-like field in answers
   if (app.answers) {
     for (const [key, val] of Object.entries(app.answers)) {
       if ((key.includes('name') || key.includes('Name')) && typeof val === 'string') return val;
@@ -38,17 +45,16 @@ function getApplicantBusiness(app: Application): string {
 export default function AdminApplicationsPage() {
   const router = useRouter();
   const [apps, setApps] = useState<Application[]>([]);
-  const [programs, setPrograms] = useState<Program[]>([]);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [typeFilter, setTypeFilter] = useState('');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const load = async () => {
       try {
-        const [a, p] = await Promise.all([getApplications(), getPrograms()]);
+        const a = await getApplications();
         setApps(a);
-        setPrograms(p);
       } catch {}
       setLoading(false);
     };
@@ -67,10 +73,9 @@ export default function AdminApplicationsPage() {
       });
     }
     if (statusFilter) result = result.filter(a => a.status === statusFilter);
+    if (typeFilter) result = result.filter(a => a.program_type === typeFilter);
     return result;
-  }, [apps, search, statusFilter]);
-
-  const getProgramTitle = (id: string) => programs.find(p => p.id === id)?.title || '—';
+  }, [apps, search, statusFilter, typeFilter]);
 
   const handleExport = () => {
     // Gather all unique answer keys across all applications
@@ -82,13 +87,13 @@ export default function AdminApplicationsPage() {
     });
     const dynamicKeys = Array.from(allKeys);
 
-    const headers = ['Name', 'Email', 'Business', 'Program', 'Status', 'Date', ...dynamicKeys.map(k => k.replace(/_/g, ' '))];
+    const headers = ['Name', 'Email', 'Business', 'Program Type', 'Status', 'Date', ...dynamicKeys.map(k => k.replace(/_/g, ' '))];
     const rows = filtered.map(a => {
       const base = [
         getApplicantName(a),
         getApplicantEmail(a),
         getApplicantBusiness(a),
-        getProgramTitle(a.program_id),
+        TYPE_LABELS[a.program_type] || a.program_type || '',
         a.status,
         a.created_at?.toDate ? new Date(a.created_at.toDate()).toLocaleDateString() : '',
       ];
@@ -109,6 +114,12 @@ export default function AdminApplicationsPage() {
     a.click();
   };
 
+  // Get unique program types from applications
+  const availableTypes = useMemo(() => {
+    const types = new Set(apps.map(a => a.program_type).filter(Boolean));
+    return Array.from(types);
+  }, [apps]);
+
   return (
     <div className="space-y-6 max-w-6xl">
       <div className="flex items-center justify-between">
@@ -122,19 +133,37 @@ export default function AdminApplicationsPage() {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="flex-1 min-w-[200px] flex items-center bg-white rounded-2xl border border-gray-200 px-4 focus-within:border-gold-400 transition-all">
+      <div className="space-y-3">
+        <div className="flex items-center bg-white rounded-2xl border border-gray-200 px-4 focus-within:border-gold-400 transition-all">
           <Search size={16} className="text-gray-400" />
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by name, email, business..." className="flex-1 px-3 py-3 text-sm outline-none bg-transparent" />
         </div>
-        <div className="flex gap-2">
+
+        <div className="flex flex-wrap gap-2">
+          {/* Status filters */}
           {['', 'under_review', 'accepted', 'rejected'].map(s => (
             <button
-              key={s}
+              key={`status-${s}`}
               onClick={() => setStatusFilter(s)}
               className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all ${statusFilter === s ? 'bg-gray-900 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'}`}
             >
               {s ? s.replace('_', ' ') : 'All'}
+            </button>
+          ))}
+
+          {/* Divider */}
+          {availableTypes.length > 0 && (
+            <div className="w-px bg-gray-200 mx-1 self-stretch" />
+          )}
+
+          {/* Program type filters */}
+          {availableTypes.map(t => (
+            <button
+              key={`type-${t}`}
+              onClick={() => setTypeFilter(typeFilter === t ? '' : t)}
+              className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all ${typeFilter === t ? 'bg-gold-400 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'}`}
+            >
+              {TYPE_LABELS[t] || t}
             </button>
           ))}
         </div>
@@ -153,7 +182,7 @@ export default function AdminApplicationsPage() {
                 <tr className="border-b border-gray-100">
                   <th className="px-5 py-3 text-left text-xs font-semibold text-gray-400 uppercase">Applicant</th>
                   <th className="px-5 py-3 text-left text-xs font-semibold text-gray-400 uppercase">Business</th>
-                  <th className="px-5 py-3 text-left text-xs font-semibold text-gray-400 uppercase">Program</th>
+                  <th className="px-5 py-3 text-left text-xs font-semibold text-gray-400 uppercase">Program Type</th>
                   <th className="px-5 py-3 text-left text-xs font-semibold text-gray-400 uppercase">Status</th>
                   <th className="px-5 py-3 text-left text-xs font-semibold text-gray-400 uppercase">Date</th>
                 </tr>
@@ -174,7 +203,11 @@ export default function AdminApplicationsPage() {
                         </div>
                       </td>
                       <td className="px-5 py-3.5 text-xs text-gray-600">{business || '—'}</td>
-                      <td className="px-5 py-3.5 text-xs text-gray-500">{getProgramTitle(app.program_id)}</td>
+                      <td className="px-5 py-3.5">
+                        <span className="px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase bg-gold-50 text-gold-600 border border-gold-200">
+                          {TYPE_LABELS[app.program_type] || app.program_type || '—'}
+                        </span>
+                      </td>
                       <td className="px-5 py-3.5"><span className={`px-2.5 py-1 rounded-full text-xs font-bold ${statusColors[app.status]}`}>{app.status?.replace('_', ' ')}</span></td>
                       <td className="px-5 py-3.5 text-xs text-gray-400">{app.created_at?.toDate ? new Date(app.created_at.toDate()).toLocaleDateString() : '—'}</td>
                     </tr>

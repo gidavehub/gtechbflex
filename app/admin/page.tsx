@@ -3,28 +3,53 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
-import { FileText, GraduationCap, Clock, Users, TrendingUp, ArrowUpRight, Sparkles } from 'lucide-react';
-import { getApplications, getPrograms } from '@/lib/firestore';
-import type { Application, Program } from '@/lib/types';
+import { FileText, GraduationCap, Clock, Users, TrendingUp, ArrowUpRight } from 'lucide-react';
+import { getApplications } from '@/lib/firestore';
+import type { Application } from '@/lib/types';
+
+const TYPE_LABELS: Record<string, string> = {
+  mentorship: 'Mentorship',
+  investment_readiness: 'Investment Readiness',
+  business_linkage: 'Business Linkage',
+  incubation: 'Incubation',
+  acceleration: 'Acceleration',
+};
+
+function getApplicantName(app: Application): string {
+  if (app.answers?.full_name) return app.answers.full_name;
+  if (app.answers?.name) return app.answers.name;
+  if (app.full_name) return app.full_name;
+  if (app.answers) {
+    for (const [key, val] of Object.entries(app.answers)) {
+      if ((key.includes('name') || key.includes('Name')) && typeof val === 'string') return val;
+    }
+  }
+  return 'Unnamed';
+}
+
+function getApplicantEmail(app: Application): string {
+  return app.answers?.email || app.email || '';
+}
 
 export default function AdminDashboard() {
   const router = useRouter();
   const [apps, setApps] = useState<Application[]>([]);
-  const [programs, setPrograms] = useState<Program[]>([]);
 
   useEffect(() => {
     const load = async () => {
       try {
-        const [a, p] = await Promise.all([getApplications(), getPrograms()]);
+        const a = await getApplications();
         setApps(a);
-        setPrograms(p);
       } catch {}
     };
     load();
   }, []);
 
   const underReview = apps.filter(a => a.status === 'under_review').length;
-  const getProgramTitle = (id: string) => programs.find(p => p.id === id)?.title || '—';
+  const accepted = apps.filter(a => a.status === 'accepted').length;
+
+  // Count unique program types
+  const programTypes = new Set(apps.map(a => a.program_type).filter(Boolean));
 
   const statusColors: Record<string, string> = {
     under_review: 'bg-amber-100 text-amber-700',
@@ -36,8 +61,8 @@ export default function AdminDashboard() {
   const cards = [
     { label: 'Total Applications', value: apps.length, icon: FileText, gradient: 'from-gold-400 to-gold-500', link: '/admin/applications', desc: 'All submissions' },
     { label: 'Pending Review', value: underReview, icon: Clock, gradient: 'from-red-500 to-red-600', link: '/admin/applications', desc: 'Awaiting action' },
-    { label: 'Programs', value: programs.length, icon: GraduationCap, gradient: 'from-blue-500 to-blue-600', link: '/admin/programs', desc: 'Active programs' },
-    { label: 'Participants', value: apps.filter(a => a.status === 'accepted').length, icon: Users, gradient: 'from-emerald-500 to-emerald-600', link: '/admin/analytics', desc: 'Accepted applicants' },
+    { label: 'Program Types', value: programTypes.size, icon: GraduationCap, gradient: 'from-blue-500 to-blue-600', link: '/admin/applications', desc: 'Active categories' },
+    { label: 'Accepted', value: accepted, icon: Users, gradient: 'from-emerald-500 to-emerald-600', link: '/admin/analytics', desc: 'Accepted applicants' },
   ];
 
   return (
@@ -98,43 +123,53 @@ export default function AdminDashboard() {
                 <thead>
                   <tr className="border-b border-gray-50">
                     <th className="px-6 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Applicant</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Program</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Program Type</th>
                     <th className="px-6 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Status</th>
                     <th className="px-6 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Date</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {apps.slice(0, 8).map((app, idx) => (
-                    <motion.tr
-                      key={app.id}
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      transition={{ delay: 0.4 + idx * 0.05 }}
-                      className="border-b border-gray-50 last:border-0 hover:bg-gray-50/50 transition-colors cursor-pointer"
-                      onClick={() => router.push(`/admin/applications/${app.id}`)}
-                    >
-                      <td className="px-6 py-3.5">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-gold-50 flex items-center justify-center text-gold-600 font-bold text-xs border border-gold-200">
-                            {app.full_name?.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
+                  {apps.slice(0, 8).map((app, idx) => {
+                    const name = getApplicantName(app);
+                    const email = getApplicantEmail(app);
+                    const initials = name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
+
+                    return (
+                      <motion.tr
+                        key={app.id}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ delay: 0.4 + idx * 0.05 }}
+                        className="border-b border-gray-50 last:border-0 hover:bg-gray-50/50 transition-colors cursor-pointer"
+                        onClick={() => router.push(`/admin/applications/${app.id}`)}
+                      >
+                        <td className="px-6 py-3.5">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-full bg-gold-50 flex items-center justify-center text-gold-600 font-bold text-xs border border-gold-200">
+                              {initials}
+                            </div>
+                            <div>
+                              <p className="font-semibold text-gray-900">{name}</p>
+                              <p className="text-xs text-gray-400">{email}</p>
+                            </div>
                           </div>
-                          <div>
-                            <p className="font-semibold text-gray-900">{app.full_name}</p>
-                            <p className="text-xs text-gray-400">{app.email}</p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-3.5 text-xs text-gray-500">{getProgramTitle(app.program_id)}</td>
-                      <td className="px-6 py-3.5">
-                        <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${statusColors[app.status] || statusColors.under_review}`}>
-                          {app.status?.replace('_', ' ')}
-                        </span>
-                      </td>
-                      <td className="px-6 py-3.5 text-xs text-gray-400">
-                        {app.created_at?.toDate ? new Date(app.created_at.toDate()).toLocaleDateString() : '—'}
-                      </td>
-                    </motion.tr>
-                  ))}
+                        </td>
+                        <td className="px-6 py-3.5">
+                          <span className="px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase bg-gold-50 text-gold-600 border border-gold-200">
+                            {TYPE_LABELS[app.program_type] || app.program_type || '—'}
+                          </span>
+                        </td>
+                        <td className="px-6 py-3.5">
+                          <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${statusColors[app.status] || statusColors.under_review}`}>
+                            {app.status?.replace('_', ' ')}
+                          </span>
+                        </td>
+                        <td className="px-6 py-3.5 text-xs text-gray-400">
+                          {app.created_at?.toDate ? new Date(app.created_at.toDate()).toLocaleDateString() : '—'}
+                        </td>
+                      </motion.tr>
+                    );
+                  })}
                 </tbody>
               </table>
             )}

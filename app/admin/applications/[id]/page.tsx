@@ -6,8 +6,17 @@ import { motion } from 'framer-motion';
 import { ArrowLeft, CheckCircle, XCircle, Clock, Save } from 'lucide-react';
 import CustomTextarea from '@/components/ui/CustomTextarea';
 import { useToast } from '@/context/ToastContext';
-import { getApplication, updateApplication, getProgram } from '@/lib/firestore';
-import type { Application, Program } from '@/lib/types';
+import { getApplication, updateApplication } from '@/lib/firestore';
+import { DEFAULT_FORM_FIELDS } from '@/lib/types';
+import type { Application } from '@/lib/types';
+
+const TYPE_LABELS: Record<string, string> = {
+  mentorship: 'Mentorship',
+  investment_readiness: 'Investment Readiness',
+  business_linkage: 'Business Linkage',
+  incubation: 'Incubation',
+  acceleration: 'Acceleration',
+};
 
 export default function AdminApplicationDetail() {
   const params = useParams();
@@ -15,7 +24,6 @@ export default function AdminApplicationDetail() {
   const router = useRouter();
   const { toast } = useToast();
   const [app, setApp] = useState<Application | null>(null);
-  const [program, setProgram] = useState<Program | null>(null);
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -26,8 +34,6 @@ export default function AdminApplicationDetail() {
       setApp(data);
       if (data) {
         setNotes(data.admin_notes || '');
-        const p = await getProgram(data.program_id);
-        setProgram(p);
       }
     };
     load();
@@ -42,6 +48,7 @@ export default function AdminApplicationDetail() {
       // Send email notification via the applicant's email from answers or legacy field
       const email = app?.answers?.email || app?.email;
       const name = app?.answers?.full_name || app?.full_name;
+      const typeLabel = TYPE_LABELS[app?.program_type || ''] || app?.program_type || 'G-Tech Program';
 
       if (email) {
         try {
@@ -52,7 +59,7 @@ export default function AdminApplicationDetail() {
               type: status === 'accepted' ? 'application_accepted' : 'application_rejected',
               to: email,
               name: name?.split(' ')[0] || 'Applicant',
-              programName: program?.title || 'G-Tech Program',
+              programName: `G-Tech ${typeLabel}`,
               reason: notes || undefined,
             }),
           });
@@ -89,13 +96,13 @@ export default function AdminApplicationDetail() {
 
   // Determine if this is a new-format (dynamic answers) or old-format (legacy fields) application
   const hasAnswers = app.answers && Object.keys(app.answers).length > 0;
-  const formFields = program?.fields || [];
+  const formFields = DEFAULT_FORM_FIELDS;
 
   // Build display data
   const displayRows: { label: string; value: string }[] = [];
 
   if (hasAnswers) {
-    // New format: use program form fields for labels, answers for values
+    // New format: use default form fields for labels, answers for values
     formFields.forEach(field => {
       if (field.type === 'heading' || field.type === 'paragraph') return;
       let val = app.answers[field.id];
@@ -105,7 +112,7 @@ export default function AdminApplicationDetail() {
       displayRows.push({ label: field.label, value: String(val) });
     });
 
-    // Also show any answers without matching form field (in case form was changed)
+    // Also show any answers without matching form field
     Object.entries(app.answers).forEach(([key, val]) => {
       if (formFields.some(f => f.id === key)) return; // Already shown
       if (val === undefined || val === null) return;
@@ -134,6 +141,8 @@ export default function AdminApplicationDetail() {
     ? (app.answers.full_name || app.answers.name || Object.values(app.answers)[0] || 'Unnamed')
     : (app.full_name || 'Unnamed');
 
+  const typeLabel = TYPE_LABELS[app.program_type] || app.program_type;
+
   return (
     <div className="max-w-4xl space-y-6">
       <button onClick={() => router.back()} className="flex items-center gap-2 text-sm font-semibold text-gray-500 hover:text-gray-900 transition-colors">
@@ -144,7 +153,11 @@ export default function AdminApplicationDetail() {
         <div className="flex items-center justify-between mb-4">
           <div>
             <h1 className="text-xl font-bold text-gray-900">{applicantName}</h1>
-            {program && <p className="text-xs text-gray-400 mt-0.5">Applied to: {program.title}</p>}
+            <div className="flex items-center gap-2 mt-1">
+              <span className="px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase bg-gold-50 text-gold-600 border border-gold-200">
+                {typeLabel}
+              </span>
+            </div>
           </div>
           <span className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 ${current.class}`}>
             <current.icon size={14} /> {app.status.replace('_', ' ')}

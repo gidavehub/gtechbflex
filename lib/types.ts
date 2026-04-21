@@ -74,9 +74,12 @@ export interface Program {
 // ==========================================
 export type ApplicationStatus = 'under_review' | 'accepted' | 'rejected' | 'withdrawn';
 
+export type ProgramType = 'mentorship' | 'investment_readiness' | 'business_linkage' | 'incubation' | 'acceleration';
+
 export interface Application {
   id: string;
-  program_id: string;
+  program_type: ProgramType;
+  program_id?: string;
   // Dynamic form answers keyed by field ID
   answers: Record<string, any>;
   // Status

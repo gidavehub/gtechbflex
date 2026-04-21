@@ -16,9 +16,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "B-Flex | G-Tech Gambia — Program Registration Portal",
-  description: "Register for Gambia Tech Programs. Find mentorship, investment readiness, business linkage, incubation, and acceleration opportunities for entrepreneurs and startups.",
-  keywords: ["Gambia", "Tech", "B-Flex", "Registration", "Startups", "Mentorship", "Incubation"],
+  title: "B-Flex | G-Tech Gambia — Apply Now",
+  description: "Apply for G-Tech Gambia programs. Submit your application for mentorship, investment readiness, business linkage, incubation, and acceleration opportunities.",
+  keywords: ["Gambia", "Tech", "B-Flex", "Application", "Startups", "Mentorship", "Incubation"],
   icons: {
     icon: "/logo.webp",
     shortcut: "/logo.webp",
