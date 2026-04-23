@@ -1,9 +1,12 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
-import { FileText, GraduationCap, Clock, Users, TrendingUp, ArrowUpRight } from 'lucide-react';
+import {
+  FileText, Clock, Users, TrendingUp, ArrowUpRight,
+  CheckCircle, XCircle, BarChart3, Layers,
+} from 'lucide-react';
 import { getApplications } from '@/lib/firestore';
 import type { Application } from '@/lib/types';
 
@@ -13,6 +16,14 @@ const TYPE_LABELS: Record<string, string> = {
   business_linkage: 'Business Linkage',
   incubation: 'Incubation',
   acceleration: 'Acceleration',
+};
+
+const TYPE_COLORS: Record<string, { gradient: string; bg: string; text: string; border: string }> = {
+  mentorship: { gradient: 'from-violet-500 to-purple-600', bg: 'bg-violet-50', text: 'text-violet-700', border: 'border-violet-200' },
+  investment_readiness: { gradient: 'from-emerald-500 to-teal-600', bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200' },
+  business_linkage: { gradient: 'from-amber-500 to-orange-600', bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200' },
+  incubation: { gradient: 'from-blue-500 to-indigo-600', bg: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-200' },
+  acceleration: { gradient: 'from-rose-500 to-pink-600', bg: 'bg-rose-50', text: 'text-rose-700', border: 'border-rose-200' },
 };
 
 function getApplicantName(app: Application): string {
@@ -34,6 +45,7 @@ function getApplicantEmail(app: Application): string {
 export default function AdminDashboard() {
   const router = useRouter();
   const [apps, setApps] = useState<Application[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const load = async () => {
@@ -41,15 +53,32 @@ export default function AdminDashboard() {
         const a = await getApplications();
         setApps(a);
       } catch {}
+      setLoading(false);
     };
     load();
   }, []);
 
+  // Global stats
+  const totalApps = apps.length;
   const underReview = apps.filter(a => a.status === 'under_review').length;
   const accepted = apps.filter(a => a.status === 'accepted').length;
+  const rejected = apps.filter(a => a.status === 'rejected').length;
 
-  // Count unique program types
-  const programTypes = new Set(apps.map(a => a.program_type).filter(Boolean));
+  // Per-program-type breakdown
+  const programStats = useMemo(() => {
+    const stats: Record<string, { total: number; under_review: number; accepted: number; rejected: number }> = {};
+    apps.forEach(a => {
+      const type = a.program_type || 'unknown';
+      if (!stats[type]) stats[type] = { total: 0, under_review: 0, accepted: 0, rejected: 0 };
+      stats[type].total++;
+      if (a.status === 'under_review') stats[type].under_review++;
+      else if (a.status === 'accepted') stats[type].accepted++;
+      else if (a.status === 'rejected') stats[type].rejected++;
+    });
+    return Object.entries(stats)
+      .filter(([key]) => key !== 'unknown')
+      .sort((a, b) => b[1].total - a[1].total);
+  }, [apps]);
 
   const statusColors: Record<string, string> = {
     under_review: 'bg-amber-100 text-amber-700',
@@ -58,16 +87,16 @@ export default function AdminDashboard() {
     withdrawn: 'bg-gray-100 text-gray-600',
   };
 
-  const cards = [
-    { label: 'Total Applications', value: apps.length, icon: FileText, gradient: 'from-gold-400 to-gold-500', link: '/admin/applications', desc: 'All submissions' },
-    { label: 'Pending Review', value: underReview, icon: Clock, gradient: 'from-red-500 to-red-600', link: '/admin/applications', desc: 'Awaiting action' },
-    { label: 'Program Types', value: programTypes.size, icon: GraduationCap, gradient: 'from-blue-500 to-blue-600', link: '/admin/applications', desc: 'Active categories' },
-    { label: 'Accepted', value: accepted, icon: Users, gradient: 'from-emerald-500 to-emerald-600', link: '/admin/analytics', desc: 'Accepted applicants' },
+  const globalCards = [
+    { label: 'Total Applications', value: totalApps, icon: FileText, gradient: 'from-gold-400 to-gold-500', desc: 'All submissions' },
+    { label: 'Under Review', value: underReview, icon: Clock, gradient: 'from-amber-500 to-amber-600', desc: 'Awaiting action' },
+    { label: 'Accepted', value: accepted, icon: CheckCircle, gradient: 'from-emerald-500 to-emerald-600', desc: 'Approved applicants' },
+    { label: 'Rejected', value: rejected, icon: XCircle, gradient: 'from-red-500 to-red-600', desc: 'Declined applicants' },
   ];
 
   return (
     <div className="space-y-8 max-w-6xl">
-      {/* Welcome */}
+      {/* Welcome Banner */}
       <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-8 text-white">
         <div className="absolute top-0 right-0 w-64 h-64 bg-gold-400/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl" />
         <div className="relative z-10">
@@ -81,15 +110,15 @@ export default function AdminDashboard() {
         </div>
       </motion.div>
 
-      {/* Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {cards.map((card, i) => (
+      {/* Global Stats Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {globalCards.map((card, i) => (
           <motion.div key={card.label} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.08 }}>
             <div
-              onClick={() => router.push(card.link)}
+              onClick={() => router.push('/admin/applications')}
               className="group bg-white rounded-2xl border border-gray-100 p-5 shadow-sm hover:shadow-md hover:border-gold-200/50 transition-all cursor-pointer relative overflow-hidden"
             >
-              <div className="flex items-start justify-between mb-4">
+              <div className="flex items-start justify-between mb-3">
                 <div className={`w-11 h-11 rounded-xl bg-gradient-to-br ${card.gradient} flex items-center justify-center shadow-sm`}>
                   <card.icon size={20} className="text-white" />
                 </div>
@@ -103,8 +132,106 @@ export default function AdminDashboard() {
         ))}
       </div>
 
-      {/* Recent applications */}
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}>
+      {/* Per-Program-Type Breakdown */}
+      {programStats.length > 0 && (
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
+          <div className="flex items-center gap-2 mb-4">
+            <BarChart3 size={16} className="text-gold-500" />
+            <h2 className="text-base font-bold text-gray-900">Applications by Program Type</h2>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {programStats.map(([type, stats], i) => {
+              const colors = TYPE_COLORS[type] || TYPE_COLORS.mentorship;
+              const maxVal = Math.max(stats.under_review, stats.accepted, stats.rejected, 1);
+              return (
+                <motion.div
+                  key={type}
+                  initial={{ opacity: 0, y: 15 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.35 + i * 0.06 }}
+                  className={`bg-white rounded-2xl border border-gray-100 shadow-sm p-5 hover:shadow-md transition-all`}
+                >
+                  {/* Header */}
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-2.5">
+                      <div className={`w-9 h-9 rounded-xl bg-gradient-to-br ${colors.gradient} flex items-center justify-center shadow-sm`}>
+                        <Layers size={16} className="text-white" />
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-bold text-gray-900">{TYPE_LABELS[type] || type}</h3>
+                        <p className="text-[11px] text-gray-400 font-medium">{stats.total} application{stats.total !== 1 ? 's' : ''}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Status bars */}
+                  <div className="space-y-3">
+                    {/* Under Review */}
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5">
+                          <Clock size={11} className="text-amber-500" />
+                          <span className="text-[11px] font-semibold text-gray-500">Under Review</span>
+                        </div>
+                        <span className="text-xs font-bold text-amber-600">{stats.under_review}</span>
+                      </div>
+                      <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                        <motion.div
+                          initial={{ width: 0 }}
+                          animate={{ width: `${(stats.under_review / maxVal) * 100}%` }}
+                          transition={{ delay: 0.5 + i * 0.06, duration: 0.6 }}
+                          className="h-full rounded-full bg-amber-400"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Accepted */}
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5">
+                          <CheckCircle size={11} className="text-emerald-500" />
+                          <span className="text-[11px] font-semibold text-gray-500">Accepted</span>
+                        </div>
+                        <span className="text-xs font-bold text-emerald-600">{stats.accepted}</span>
+                      </div>
+                      <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                        <motion.div
+                          initial={{ width: 0 }}
+                          animate={{ width: `${(stats.accepted / maxVal) * 100}%` }}
+                          transition={{ delay: 0.55 + i * 0.06, duration: 0.6 }}
+                          className="h-full rounded-full bg-emerald-400"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Rejected */}
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5">
+                          <XCircle size={11} className="text-red-500" />
+                          <span className="text-[11px] font-semibold text-gray-500">Rejected</span>
+                        </div>
+                        <span className="text-xs font-bold text-red-600">{stats.rejected}</span>
+                      </div>
+                      <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                        <motion.div
+                          initial={{ width: 0 }}
+                          animate={{ width: `${(stats.rejected / maxVal) * 100}%` }}
+                          transition={{ delay: 0.6 + i * 0.06, duration: 0.6 }}
+                          className="h-full rounded-full bg-red-400"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              );
+            })}
+          </div>
+        </motion.div>
+      )}
+
+      {/* Recent Applications Table */}
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm">
           <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -117,7 +244,9 @@ export default function AdminDashboard() {
           </div>
           <div className="overflow-x-auto">
             {apps.length === 0 ? (
-              <div className="py-12 text-center text-sm text-gray-400">No applications yet.</div>
+              <div className="py-12 text-center text-sm text-gray-400">
+                {loading ? 'Loading applications...' : 'No applications yet.'}
+              </div>
             ) : (
               <table className="w-full text-sm min-w-[600px]">
                 <thead>
@@ -133,13 +262,14 @@ export default function AdminDashboard() {
                     const name = getApplicantName(app);
                     const email = getApplicantEmail(app);
                     const initials = name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
+                    const typeColor = TYPE_COLORS[app.program_type];
 
                     return (
                       <motion.tr
                         key={app.id}
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
-                        transition={{ delay: 0.4 + idx * 0.05 }}
+                        transition={{ delay: 0.45 + idx * 0.05 }}
                         className="border-b border-gray-50 last:border-0 hover:bg-gray-50/50 transition-colors cursor-pointer"
                         onClick={() => router.push(`/admin/applications/${app.id}`)}
                       >
@@ -155,7 +285,7 @@ export default function AdminDashboard() {
                           </div>
                         </td>
                         <td className="px-6 py-3.5">
-                          <span className="px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase bg-gold-50 text-gold-600 border border-gold-200">
+                          <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase ${typeColor ? `${typeColor.bg} ${typeColor.text} ${typeColor.border}` : 'bg-gold-50 text-gold-600 border-gold-200'} border`}>
                             {TYPE_LABELS[app.program_type] || app.program_type || '—'}
                           </span>
                         </td>

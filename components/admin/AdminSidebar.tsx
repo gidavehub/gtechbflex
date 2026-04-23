@@ -11,7 +11,7 @@ import { useAuth } from '@/context/AuthContext';
 const navItems = [
   { href: '/admin', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/admin/applications', label: 'Applications', icon: FileText },
-  { href: '/admin/programs', label: 'Programs', icon: GraduationCap },
+  { href: '/admin/programs', label: 'Form', icon: GraduationCap },
   { href: '/admin/analytics', label: 'Analytics', icon: BarChart3 },
 ];
 

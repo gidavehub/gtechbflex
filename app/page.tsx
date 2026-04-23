@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
 import {
@@ -10,7 +10,7 @@ import {
 import DynamicFormRenderer from '@/components/form/DynamicFormRenderer';
 import { useToast } from '@/context/ToastContext';
 import { createApplication, checkExistingApplicationByEmail } from '@/lib/firestore';
-import { DEFAULT_FORM_FIELDS } from '@/lib/types';
+import { getVisibleFormFields } from '@/lib/types';
 import type { FormField, ProgramType } from '@/lib/types';
 
 // ==========================================
@@ -114,27 +114,34 @@ export default function HomePage() {
   const [submitted, setSubmitted] = useState(false);
   const [confirmChecked, setConfirmChecked] = useState(false);
 
-  const fields = DEFAULT_FORM_FIELDS;
+  // Dynamically compute visible fields based on program type and current answers
+  const fields = useMemo(() => {
+    if (!selectedType) return [];
+    return getVisibleFormFields(selectedType, values);
+  }, [selectedType, values]);
 
   // Split fields into steps by heading fields
-  const steps: { title: string; fields: FormField[] }[] = [];
-  let currentGroup: FormField[] = [];
-  let currentTitle = 'Details';
+  const steps = useMemo(() => {
+    const result: { title: string; fields: FormField[] }[] = [];
+    let currentGroup: FormField[] = [];
+    let currentTitle = 'Details';
 
-  fields.forEach(field => {
-    if (field.type === 'heading') {
-      if (currentGroup.length > 0) {
-        steps.push({ title: currentTitle, fields: currentGroup });
+    fields.forEach(field => {
+      if (field.type === 'heading') {
+        if (currentGroup.length > 0) {
+          result.push({ title: currentTitle, fields: currentGroup });
+        }
+        currentTitle = field.label;
+        currentGroup = [];
+      } else {
+        currentGroup.push(field);
       }
-      currentTitle = field.label;
-      currentGroup = [];
-    } else {
-      currentGroup.push(field);
+    });
+    if (currentGroup.length > 0) {
+      result.push({ title: currentTitle, fields: currentGroup });
     }
-  });
-  if (currentGroup.length > 0) {
-    steps.push({ title: currentTitle, fields: currentGroup });
-  }
+    return result;
+  }, [fields]);
 
   // Steps: 0=type select, 1..N=form sections, N+1=review
   const totalSteps = steps.length + 2; // +1 for type select, +1 for review
