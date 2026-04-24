@@ -10,20 +10,14 @@ export default function Footer() {
         <div className="flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-xl overflow-hidden">
-              <Image src="/logo.webp" alt="G-Tech" width={32} height={32} className="w-full h-full object-contain" />
+              <Image src="/logo.webp" alt="Gambia Tech" width={32} height={32} className="w-full h-full object-contain" />
             </div>
             <span className="text-sm font-bold text-gray-900">
               B-<span className="text-gold-gradient">Flex</span>
             </span>
-            <span className="text-xs text-gray-400 ml-2">by G-Tech Gambia</span>
+            <span className="text-xs text-gray-400 ml-2">by Gambia Tech</span>
           </div>
-          <div className="flex items-center gap-6 text-xs text-gray-500">
-            <a href="mailto:gtech@connekt.gm" className="hover:text-gold-500 transition-colors font-medium">
-              gtech@connekt.gm
-            </a>
-            <span>•</span>
-            <span>© {new Date().getFullYear()} All rights reserved</span>
-          </div>
+          <span className="text-xs text-gray-500">© {new Date().getFullYear()} Gambia Tech. All rights reserved.</span>
         </div>
       </div>
     </footer>

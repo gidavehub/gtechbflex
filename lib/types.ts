@@ -191,15 +191,11 @@ export const BUSINESS_SECTORS = [
   'Other',
 ] as const;
 
-export const GAMBIA_REGIONS = [
-  'Banjul',
-  'Kanifing',
-  'Brikama (West Coast)',
-  'Mansakonko (Lower River)',
-  'Kerewan (North Bank)',
-  'Kuntaur (Central River North)',
-  'Janjanbureh (Central River South)',
-  'Basse (Upper River)',
+export const EDUCATION_LEVELS = [
+  'Secondary',
+  'University',
+  'Vocational Training',
+  'Arabic',
 ] as const;
 
 export const COUNTRIES = [
@@ -214,6 +210,22 @@ export const COUNTRIES = [
   'Nigeria',
   'Other',
 ] as const;
+
+export const GAMBIA_REGIONS = [
+  'Banjul',
+  'Kanifing',
+  'Brikama (West Coast)',
+  'Mansakonko (Lower River)',
+  'Kerewan (North Bank)',
+  'Kuntaur (Central River North)',
+  'Janjanbureh (Central River South)',
+  'Basse (Upper River)',
+] as const;
+
+// Returns Gambia regions when Gambia is selected, empty otherwise
+export function getRegionsForCountry(country: string): string[] {
+  return country === 'Gambia' ? [...GAMBIA_REGIONS] : [];
+}
 
 // ==========================================
 // FIELD TYPE METADATA
@@ -243,7 +255,9 @@ export const DEFAULT_FORM_FIELDS: FormField[] = [
   { id: 'email', type: 'email', label: 'Email Address', placeholder: 'you@example.com', required: true, width: 'half' },
   { id: 'phone', type: 'phone', label: 'Phone Number', placeholder: '+220 ...', required: false, width: 'half' },
   { id: 'gender', type: 'select', label: 'Gender', options: ['Male', 'Female', 'Other'], required: true, width: 'half' },
+  { id: 'education_level', type: 'select', label: 'Level of Education', options: [...EDUCATION_LEVELS], required: true, width: 'half' },
   { id: 'country', type: 'select', label: 'Country', options: [...COUNTRIES], required: true, width: 'half' },
+  { id: 'region', type: 'select', label: 'Region', options: [], placeholder: 'Select your country first', required: true, width: 'half' },
 
   // ── Business Gate (only for mentorship — asks if applicant owns a business)
   { id: 'section_business_gate', type: 'heading', label: 'Business Ownership' },
@@ -282,8 +296,15 @@ export function getVisibleFormFields(
   const isBusinessProgram = BUSINESS_PROGRAM_TYPES.includes(programType);
   const isGateProgram = BUSINESS_GATE_PROGRAM_TYPES.includes(programType);
   const hasBusiness = answers.has_business === 'Yes';
+  const selectedCountry = answers.country || '';
+  const countryRegions = getRegionsForCountry(selectedCountry);
 
   return DEFAULT_FORM_FIELDS.filter(field => {
+    // Region field: only show if a country with regions is selected
+    if (field.id === 'region') {
+      return selectedCountry && selectedCountry !== 'Other' && countryRegions.length > 0;
+    }
+
     // Business gate section: only show for gate programs (mentorship)
     if (field.id === 'section_business_gate' || field.id === 'has_business') {
       return isGateProgram;
@@ -303,5 +324,11 @@ export function getVisibleFormFields(
 
     // Everything else (personal info, motivation) is always shown
     return true;
+  }).map(field => {
+    // Dynamically set region options based on selected country
+    if (field.id === 'region' && countryRegions.length > 0) {
+      return { ...field, options: countryRegions, placeholder: `Select region in ${selectedCountry}` };
+    }
+    return field;
   });
 }

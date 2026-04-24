@@ -23,7 +23,7 @@ const SECTION_CONFIG = [
   {
     title: 'Personal Information',
     icon: User,
-    fieldIds: ['full_name', 'email', 'phone', 'gender', 'country'],
+    fieldIds: ['full_name', 'email', 'phone', 'gender', 'education_level', 'country', 'region'],
     color: 'text-blue-500',
     bg: 'bg-blue-50',
   },
@@ -83,28 +83,6 @@ export default function AdminApplicationDetail() {
     try {
       await updateApplication(id, { status: status as any, admin_notes: notes });
       setApp(prev => prev ? { ...prev, status: status as any, admin_notes: notes } : null);
-
-      // Send email notification via the applicant's email from answers or legacy field
-      const email = app?.answers?.email || app?.email;
-      const name = app?.answers?.full_name || app?.full_name;
-      const typeLabel = TYPE_LABELS[app?.program_type || ''] || app?.program_type || 'G-Tech Program';
-
-      if (email) {
-        try {
-          await fetch('/api/email/send', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              type: status === 'accepted' ? 'application_accepted' : 'application_rejected',
-              to: email,
-              name: name?.split(' ')[0] || 'Applicant',
-              programName: `G-Tech ${typeLabel}`,
-              reason: notes || undefined,
-            }),
-          });
-        } catch {}
-      }
-
       toast({ title: `Application ${status.replace('_', ' ')}`, type: 'success' });
     } catch {
       toast({ title: 'Error updating', type: 'error' });
